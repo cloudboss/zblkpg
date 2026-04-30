@@ -2,11 +2,11 @@
     .name = .zblkpg,
     .version = "0.1.0",
     .fingerprint = 0x31124a5e373e7ebb,
-    .minimum_zig_version = "0.15.1",
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .zgpt = .{
-            .url = "git+https://github.com/cloudboss/zgpt#9dbc5851e341c6cb16cb23c7a7daabbaea103997",
-            .hash = "zgpt-0.0.0--v5LmI7kAADRpolPmez-M4AEY42j4n_RWzPyXpi4Qa2K",
+            .url = "git+https://github.com/cloudboss/zgpt#6c82a152cd57bb14d6fab2e49f40b8b0ac9dc05a",
+            .hash = "zgpt-0.0.0--v5LmJbiAACZX0lPoZpQDF0SB9bCy3pxO9go3t3HJaGA",
         },
     },
     .paths = .{
