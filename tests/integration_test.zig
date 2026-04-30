@@ -38,7 +38,11 @@ fn runCommand(allocator: std.mem.Allocator, io: std.Io, argv: []const []const u8
 }
 
 /// Run a shell command, ignoring output
-fn runCommandIgnoreOutput(allocator: std.mem.Allocator, io: std.Io, argv: []const []const u8) !void {
+fn runCommandIgnoreOutput(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    argv: []const []const u8,
+) !void {
     const stdout = try runCommand(allocator, io, argv);
     allocator.free(stdout);
 }
@@ -50,7 +54,13 @@ const PartitionSpec = struct {
 };
 
 /// Create a disk image with a GPT partition table and multiple partitions
-fn createTestImageMulti(allocator: std.mem.Allocator, io: std.Io, path: []const u8, size_mb: u32, partitions: []const PartitionSpec) !void {
+fn createTestImageMulti(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    path: []const u8,
+    size_mb: u32,
+    partitions: []const PartitionSpec,
+) !void {
     // Create sparse file
     const size_str = try std.fmt.allocPrint(allocator, "{d}M", .{size_mb});
     defer allocator.free(size_str);
@@ -120,15 +130,24 @@ fn createTestImageMulti(allocator: std.mem.Allocator, io: std.Io, path: []const 
     try file.writePositionalAll(io, std.mem.sliceAsBytes(entries), 2 * SECTOR_SIZE);
 
     // Write backup partition entries
-    try file.writePositionalAll(io, std.mem.sliceAsBytes(entries), backup_entries_lba * SECTOR_SIZE);
+    try file.writePositionalAll(
+        io,
+        std.mem.sliceAsBytes(entries),
+        backup_entries_lba * SECTOR_SIZE,
+    );
 
     // Write backup GPT header
     var backup_header = header;
     backup_header.my_lba = std.mem.nativeToLittle(u64, backup_header_lba);
-    backup_header.alternate_lba = std.mem.nativeToLittle(u64, zgpt.gpt.GPT_PRIMARY_PARTITION_TABLE_LBA);
+    backup_header.alternate_lba = std.mem.nativeToLittle(
+        u64,
+        zgpt.gpt.GPT_PRIMARY_PARTITION_TABLE_LBA,
+    );
     backup_header.partition_entry_lba = std.mem.nativeToLittle(u64, backup_entries_lba);
     backup_header.header_crc32 = 0;
-    const backup_header_crc = std.hash.Crc32.hash(std.mem.asBytes(&backup_header)[0..zgpt.gpt.GPT_HEADER_MINSZ]);
+    const backup_header_crc = std.hash.Crc32.hash(
+        std.mem.asBytes(&backup_header)[0..zgpt.gpt.GPT_HEADER_MINSZ],
+    );
     backup_header.header_crc32 = std.mem.nativeToLittle(u32, backup_header_crc);
 
     @memset(&header_sector, 0);
@@ -139,7 +158,13 @@ fn createTestImageMulti(allocator: std.mem.Allocator, io: std.Io, path: []const 
 }
 
 /// Create a disk image with a GPT partition table and one partition
-fn createTestImage(allocator: std.mem.Allocator, io: std.Io, path: []const u8, size_mb: u32, partition_size_sectors: u64) !void {
+fn createTestImage(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    path: []const u8,
+    size_mb: u32,
+    partition_size_sectors: u64,
+) !void {
     try createTestImageMulti(allocator, io, path, size_mb, &.{
         .{ .size_sectors = partition_size_sectors, .name = "TestPart" },
     });
@@ -147,7 +172,11 @@ fn createTestImage(allocator: std.mem.Allocator, io: std.Io, path: []const u8, s
 
 /// Set up a loop device using losetup (requires root)
 fn setupLoopDevice(allocator: std.mem.Allocator, io: std.Io, image_path: []const u8) ![]const u8 {
-    const stdout = try runCommand(allocator, io, &.{ "losetup", "--find", "--show", "--partscan", image_path });
+    const stdout = try runCommand(
+        allocator,
+        io,
+        &.{ "losetup", "--find", "--show", "--partscan", image_path },
+    );
     const loop_dev = std.mem.trimEnd(u8, stdout, "\n");
     const result = try allocator.dupe(u8, loop_dev);
     allocator.free(stdout);
@@ -155,10 +184,27 @@ fn setupLoopDevice(allocator: std.mem.Allocator, io: std.Io, image_path: []const
 }
 
 /// Set up a loop device with specific sector size
-fn setupLoopDeviceWithSectorSize(allocator: std.mem.Allocator, io: std.Io, image_path: []const u8, sector_size: u32) ![]const u8 {
+fn setupLoopDeviceWithSectorSize(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    image_path: []const u8,
+    sector_size: u32,
+) ![]const u8 {
     const sector_size_str = try std.fmt.allocPrint(allocator, "{d}", .{sector_size});
     defer allocator.free(sector_size_str);
-    const stdout = try runCommand(allocator, io, &.{ "losetup", "--find", "--show", "--partscan", "--sector-size", sector_size_str, image_path });
+    const stdout = try runCommand(
+        allocator,
+        io,
+        &.{
+            "losetup",
+            "--find",
+            "--show",
+            "--partscan",
+            "--sector-size",
+            sector_size_str,
+            image_path,
+        },
+    );
     const loop_dev = std.mem.trimEnd(u8, stdout, "\n");
     const result = try allocator.dupe(u8, loop_dev);
     allocator.free(stdout);
@@ -171,13 +217,27 @@ fn detachLoopDevice(allocator: std.mem.Allocator, io: std.Io, loop_dev: []const 
 }
 
 /// Get the size of a partition in sectors by reading from sysfs
-fn getPartitionSizeSectors(allocator: std.mem.Allocator, io: std.Io, loop_dev: []const u8, part_num: u32) !?u64 {
+fn getPartitionSizeSectors(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    loop_dev: []const u8,
+    part_num: u32,
+) !?u64 {
     const loop_name = std.fs.path.basename(loop_dev);
 
     var path_buf: [128]u8 = undefined;
-    const sysfs_path = try std.fmt.bufPrint(&path_buf, "/sys/block/{s}/{s}p{d}/size", .{ loop_name, loop_name, part_num });
+    const sysfs_path = try std.fmt.bufPrint(
+        &path_buf,
+        "/sys/block/{s}/{s}p{d}/size",
+        .{ loop_name, loop_name, part_num },
+    );
 
-    const size_str = std.Io.Dir.cwd().readFileAlloc(io, sysfs_path, allocator, .limited(64)) catch |err| {
+    const size_str = std.Io.Dir.cwd().readFileAlloc(
+        io,
+        sysfs_path,
+        allocator,
+        .limited(64),
+    ) catch |err| {
         if (err == error.FileNotFound) return null;
         return err;
     };
@@ -188,13 +248,27 @@ fn getPartitionSizeSectors(allocator: std.mem.Allocator, io: std.Io, loop_dev: [
 }
 
 /// Get partition start sector from sysfs
-fn getPartitionStartSector(allocator: std.mem.Allocator, io: std.Io, loop_dev: []const u8, part_num: u32) !?u64 {
+fn getPartitionStartSector(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    loop_dev: []const u8,
+    part_num: u32,
+) !?u64 {
     const loop_name = std.fs.path.basename(loop_dev);
 
     var path_buf: [128]u8 = undefined;
-    const sysfs_path = try std.fmt.bufPrint(&path_buf, "/sys/block/{s}/{s}p{d}/start", .{ loop_name, loop_name, part_num });
+    const sysfs_path = try std.fmt.bufPrint(
+        &path_buf,
+        "/sys/block/{s}/{s}p{d}/start",
+        .{ loop_name, loop_name, part_num },
+    );
 
-    const start_str = std.Io.Dir.cwd().readFileAlloc(io, sysfs_path, allocator, .limited(64)) catch |err| {
+    const start_str = std.Io.Dir.cwd().readFileAlloc(
+        io,
+        sysfs_path,
+        allocator,
+        .limited(64),
+    ) catch |err| {
         if (err == error.FileNotFound) return null;
         return err;
     };
@@ -205,7 +279,13 @@ fn getPartitionStartSector(allocator: std.mem.Allocator, io: std.Io, loop_dev: [
 }
 
 /// Resize partition in GPT using zgpt
-fn resizePartitionInGpt(allocator: std.mem.Allocator, io: std.Io, device: []const u8, partition_num: u32, new_size_sectors: u64) !void {
+fn resizePartitionInGpt(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    device: []const u8,
+    partition_num: u32,
+    new_size_sectors: u64,
+) !void {
     var ctx = try zgpt.GptContext.init(allocator, io, device);
     defer ctx.deinit();
 
@@ -219,7 +299,12 @@ fn resizePartitionInGpt(allocator: std.mem.Allocator, io: std.Io, device: []cons
 }
 
 /// Helper to get partition info from GPT
-fn getPartitionInfo(allocator: std.mem.Allocator, io: std.Io, device: []const u8, partition_num: u32) !struct { start: u64, size: u64 } {
+fn getPartitionInfo(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    device: []const u8,
+    partition_num: u32,
+) !struct { start: u64, size: u64 } {
     var ctx = try zgpt.GptContext.init(allocator, io, device);
     defer ctx.deinit();
     try ctx.load();
@@ -273,7 +358,13 @@ test "integration: resize partition on loop device" {
     defer loop_file.close(io);
 
     const info = try getPartitionInfo(allocator, io, loop_dev, 1);
-    try zblkpg.resizePartition(loop_file.handle, 1, @intCast(info.start), @intCast(info.start + new_size_sectors), SECTOR_SIZE);
+    try zblkpg.resizePartition(
+        loop_file.handle,
+        1,
+        @intCast(info.start),
+        @intCast(info.start + new_size_sectors),
+        SECTOR_SIZE,
+    );
 
     const new_size = try getPartitionSizeSectors(allocator, io, loop_dev, 1) orelse {
         return error.PartitionNotFound;
@@ -356,9 +447,20 @@ test "integration: resize with read-only fd succeeds" {
 
     const info = try getPartitionInfo(allocator, io, loop_dev, 1);
     // This should succeed - BLKPG doesn't require write access
-    try zblkpg.resizePartition(loop_file.handle, 1, @intCast(info.start), @intCast(info.start + new_size), SECTOR_SIZE);
+    try zblkpg.resizePartition(
+        loop_file.handle,
+        1,
+        @intCast(info.start),
+        @intCast(info.start + new_size),
+        SECTOR_SIZE,
+    );
 
-    const actual_size = try getPartitionSizeSectors(allocator, io, loop_dev, 1) orelse return error.PartitionNotFound;
+    const actual_size = try getPartitionSizeSectors(
+        allocator,
+        io,
+        loop_dev,
+        1,
+    ) orelse return error.PartitionNotFound;
     try testing.expectEqual(new_size, actual_size);
 }
 
@@ -541,7 +643,12 @@ test "integration: shrink partition" {
 
     try settle(io);
 
-    const initial_size = try getPartitionSizeSectors(allocator, io, loop_dev, 1) orelse return error.PartitionNotFound;
+    const initial_size = try getPartitionSizeSectors(
+        allocator,
+        io,
+        loop_dev,
+        1,
+    ) orelse return error.PartitionNotFound;
     try testing.expectEqual(initial_partition_sectors, initial_size);
 
     // Shrink to 5MB (10240 sectors)
@@ -552,9 +659,20 @@ test "integration: shrink partition" {
     defer loop_file.close(io);
 
     const info = try getPartitionInfo(allocator, io, loop_dev, 1);
-    try zblkpg.resizePartition(loop_file.handle, 1, @intCast(info.start), @intCast(info.start + new_size_sectors), SECTOR_SIZE);
+    try zblkpg.resizePartition(
+        loop_file.handle,
+        1,
+        @intCast(info.start),
+        @intCast(info.start + new_size_sectors),
+        SECTOR_SIZE,
+    );
 
-    const new_size = try getPartitionSizeSectors(allocator, io, loop_dev, 1) orelse return error.PartitionNotFound;
+    const new_size = try getPartitionSizeSectors(
+        allocator,
+        io,
+        loop_dev,
+        1,
+    ) orelse return error.PartitionNotFound;
     try testing.expectEqual(new_size_sectors, new_size);
 }
 
@@ -591,9 +709,20 @@ test "integration: multiple resize operations in sequence" {
     for (sizes) |new_size| {
         try resizePartitionInGpt(allocator, io, loop_dev, 1, new_size);
         const info = try getPartitionInfo(allocator, io, loop_dev, 1);
-        try zblkpg.resizePartition(loop_file.handle, 1, @intCast(info.start), @intCast(info.start + new_size), SECTOR_SIZE);
+        try zblkpg.resizePartition(
+            loop_file.handle,
+            1,
+            @intCast(info.start),
+            @intCast(info.start + new_size),
+            SECTOR_SIZE,
+        );
 
-        const actual_size = try getPartitionSizeSectors(allocator, io, loop_dev, 1) orelse return error.PartitionNotFound;
+        const actual_size = try getPartitionSizeSectors(
+            allocator,
+            io,
+            loop_dev,
+            1,
+        ) orelse return error.PartitionNotFound;
         try testing.expectEqual(new_size, actual_size);
     }
 }
@@ -639,14 +768,31 @@ test "integration: resize to maximum available space" {
     defer loop_file.close(io);
 
     const info = try getPartitionInfo(allocator, io, loop_dev, 1);
-    try zblkpg.resizePartition(loop_file.handle, 1, @intCast(info.start), @intCast(info.start + max_size), SECTOR_SIZE);
+    try zblkpg.resizePartition(
+        loop_file.handle,
+        1,
+        @intCast(info.start),
+        @intCast(info.start + max_size),
+        SECTOR_SIZE,
+    );
 
-    const actual_size = try getPartitionSizeSectors(allocator, io, loop_dev, 1) orelse return error.PartitionNotFound;
+    const actual_size = try getPartitionSizeSectors(
+        allocator,
+        io,
+        loop_dev,
+        1,
+    ) orelse return error.PartitionNotFound;
     try testing.expectEqual(max_size, actual_size);
 }
 
 /// Create a disk image with GPT for 4K sectors
-fn createTestImage4K(allocator: std.mem.Allocator, io: std.Io, path: []const u8, size_mb: u32, partition_size_4k_sectors: u64) !void {
+fn createTestImage4K(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    path: []const u8,
+    size_mb: u32,
+    partition_size_4k_sectors: u64,
+) !void {
     const sector_size: u32 = 4096;
 
     // Create sparse file
@@ -713,15 +859,24 @@ fn createTestImage4K(allocator: std.mem.Allocator, io: std.Io, path: []const u8,
     try file.writePositionalAll(io, std.mem.sliceAsBytes(entries), 2 * sector_size);
 
     // Write backup partition entries
-    try file.writePositionalAll(io, std.mem.sliceAsBytes(entries), backup_entries_lba * sector_size);
+    try file.writePositionalAll(
+        io,
+        std.mem.sliceAsBytes(entries),
+        backup_entries_lba * sector_size,
+    );
 
     // Write backup GPT header
     var backup_header = header;
     backup_header.my_lba = std.mem.nativeToLittle(u64, backup_header_lba);
-    backup_header.alternate_lba = std.mem.nativeToLittle(u64, zgpt.gpt.GPT_PRIMARY_PARTITION_TABLE_LBA);
+    backup_header.alternate_lba = std.mem.nativeToLittle(
+        u64,
+        zgpt.gpt.GPT_PRIMARY_PARTITION_TABLE_LBA,
+    );
     backup_header.partition_entry_lba = std.mem.nativeToLittle(u64, backup_entries_lba);
     backup_header.header_crc32 = 0;
-    const backup_header_crc = std.hash.Crc32.hash(std.mem.asBytes(&backup_header)[0..zgpt.gpt.GPT_HEADER_MINSZ]);
+    const backup_header_crc = std.hash.Crc32.hash(
+        std.mem.asBytes(&backup_header)[0..zgpt.gpt.GPT_HEADER_MINSZ],
+    );
     backup_header.header_crc32 = std.mem.nativeToLittle(u32, backup_header_crc);
 
     @memset(&header_sector, 0);
@@ -779,13 +934,29 @@ test "integration: resize with 4096-byte sectors" {
     // Resize to 10MB (2560 4K sectors = 20480 512-byte sectors)
     const new_size_4k_sectors: u64 = 2560;
     // sysfs start is also in 512-byte sectors
-    const start_512 = try getPartitionStartSector(allocator, io, loop_dev, 1) orelse return error.PartitionNotFound;
+    const start_512 = try getPartitionStartSector(
+        allocator,
+        io,
+        loop_dev,
+        1,
+    ) orelse return error.PartitionNotFound;
     // Convert to 4K sectors for the ioctl
     const start_4k = start_512 / 8;
 
-    try zblkpg.resizePartition(loop_file.handle, 1, @intCast(start_4k), @intCast(start_4k + new_size_4k_sectors), 4096);
+    try zblkpg.resizePartition(
+        loop_file.handle,
+        1,
+        @intCast(start_4k),
+        @intCast(start_4k + new_size_4k_sectors),
+        4096,
+    );
 
-    const new_size_512 = try getPartitionSizeSectors(allocator, io, loop_dev, 1) orelse return error.PartitionNotFound;
+    const new_size_512 = try getPartitionSizeSectors(
+        allocator,
+        io,
+        loop_dev,
+        1,
+    ) orelse return error.PartitionNotFound;
     try testing.expectEqual(new_size_4k_sectors * 8, new_size_512);
 }
 
@@ -824,8 +995,18 @@ test "integration: resize one partition without affecting others" {
     try settle(io);
 
     // Record initial sizes
-    const initial_size1 = try getPartitionSizeSectors(allocator, io, loop_dev, 1) orelse return error.PartitionNotFound;
-    const initial_size2 = try getPartitionSizeSectors(allocator, io, loop_dev, 2) orelse return error.PartitionNotFound;
+    const initial_size1 = try getPartitionSizeSectors(
+        allocator,
+        io,
+        loop_dev,
+        1,
+    ) orelse return error.PartitionNotFound;
+    const initial_size2 = try getPartitionSizeSectors(
+        allocator,
+        io,
+        loop_dev,
+        2,
+    ) orelse return error.PartitionNotFound;
 
     try testing.expectEqual(@as(u64, 10240), initial_size1);
     try testing.expectEqual(@as(u64, 10240), initial_size2);
@@ -838,14 +1019,30 @@ test "integration: resize one partition without affecting others" {
     defer loop_file.close(io);
 
     const info1 = try getPartitionInfo(allocator, io, loop_dev, 1);
-    try zblkpg.resizePartition(loop_file.handle, 1, @intCast(info1.start), @intCast(info1.start + new_size1), SECTOR_SIZE);
+    try zblkpg.resizePartition(
+        loop_file.handle,
+        1,
+        @intCast(info1.start),
+        @intCast(info1.start + new_size1),
+        SECTOR_SIZE,
+    );
 
     // Verify partition 1 changed
-    const final_size1 = try getPartitionSizeSectors(allocator, io, loop_dev, 1) orelse return error.PartitionNotFound;
+    const final_size1 = try getPartitionSizeSectors(
+        allocator,
+        io,
+        loop_dev,
+        1,
+    ) orelse return error.PartitionNotFound;
     try testing.expectEqual(new_size1, final_size1);
 
     // Verify partition 2 unchanged
-    const final_size2 = try getPartitionSizeSectors(allocator, io, loop_dev, 2) orelse return error.PartitionNotFound;
+    const final_size2 = try getPartitionSizeSectors(
+        allocator,
+        io,
+        loop_dev,
+        2,
+    ) orelse return error.PartitionNotFound;
     try testing.expectEqual(initial_size2, final_size2);
 }
 
@@ -877,7 +1074,12 @@ test "integration: resize partition 2 specifically" {
 
     try settle(io);
 
-    const initial_size = try getPartitionSizeSectors(allocator, io, loop_dev, 2) orelse return error.PartitionNotFound;
+    const initial_size = try getPartitionSizeSectors(
+        allocator,
+        io,
+        loop_dev,
+        2,
+    ) orelse return error.PartitionNotFound;
     try testing.expectEqual(@as(u64, 10240), initial_size);
 
     // Grow partition 2 into free space at end of disk
@@ -888,8 +1090,19 @@ test "integration: resize partition 2 specifically" {
     defer loop_file.close(io);
 
     const info = try getPartitionInfo(allocator, io, loop_dev, 2);
-    try zblkpg.resizePartition(loop_file.handle, 2, @intCast(info.start), @intCast(info.start + new_size), SECTOR_SIZE);
+    try zblkpg.resizePartition(
+        loop_file.handle,
+        2,
+        @intCast(info.start),
+        @intCast(info.start + new_size),
+        SECTOR_SIZE,
+    );
 
-    const final_size = try getPartitionSizeSectors(allocator, io, loop_dev, 2) orelse return error.PartitionNotFound;
+    const final_size = try getPartitionSizeSectors(
+        allocator,
+        io,
+        loop_dev,
+        2,
+    ) orelse return error.PartitionNotFound;
     try testing.expectEqual(new_size, final_size);
 }
