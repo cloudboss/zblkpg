@@ -8,6 +8,10 @@
             .url = "git+https://github.com/cloudboss/zgpt#6c82a152cd57bb14d6fab2e49f40b8b0ac9dc05a",
             .hash = "zgpt-0.0.0--v5LmJbiAACZX0lPoZpQDF0SB9bCy3pxO9go3t3HJaGA",
         },
+        .zest = .{
+            .url = "git+https://github.com/cloudboss/zest#cd7532a068d1e8ca87df0dee9ea9c191d24bd41a",
+            .hash = "zest-0.1.0-2zk2nt1EAABzZoN2yRNsVSyQ-BQpMlsZu8hMvHMjPE2m",
+        },
     },
     .paths = .{
         "build.zig",

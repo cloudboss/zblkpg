@@ -4,6 +4,12 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const zest = b.dependency("zest", .{});
+    const test_runner: std.Build.Step.Compile.TestRunner = .{
+        .path = zest.path("src/root.zig"),
+        .mode = .simple,
+    };
+
     const mod = b.addModule("zblkpg", .{
         .root_source_file = b.path("src/blkpg.zig"),
         .target = target,
@@ -27,6 +33,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
         }),
+        .test_runner = test_runner,
     });
     const run_unit_tests = b.addRunArtifact(unit_tests);
 
@@ -45,6 +52,7 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "zgpt", .module = zgpt_dep.module("zgpt") },
             },
         }),
+        .test_runner = test_runner,
     });
     const run_integration_tests = b.addRunArtifact(integration_tests);
 
