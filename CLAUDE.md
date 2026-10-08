@@ -16,7 +16,7 @@ zig build test
 sudo zig build test-integration
 ```
 
-Requires Zig 0.15.1 or later.
+Requires Zig 0.17.0.
 
 ## Architecture
 
@@ -72,7 +72,7 @@ Tests skip gracefully when not running as root.
 
 ## Testing Notes
 
-Integration tests create temporary files in `zig-cache/test-images/` and clean up after themselves. The tests:
+Integration tests create temporary files in `_output/test-images/` and clean up after themselves. The tests:
 - Verify basic resize operation works
 - Verify resizing non-existent partition returns `error.NoSuchPartition`
 - Verify invalid file descriptor returns `error.InvalidFileDescriptor`

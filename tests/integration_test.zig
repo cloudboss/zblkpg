@@ -62,7 +62,7 @@ fn createTestImageMulti(
     partitions: []const PartitionSpec,
 ) !void {
     // Create sparse file
-    const size_str = try std.fmt.allocPrint(allocator, "{d}M", .{size_mb});
+    const size_str = try allocator.print("{d}M", .{size_mb});
     defer allocator.free(size_str);
     try runCommandIgnoreOutput(allocator, io, &.{ "truncate", "-s", size_str, path });
 
@@ -122,7 +122,7 @@ fn createTestImageMulti(
     try file.writePositionalAll(io, &mbr, 0);
 
     // Write primary GPT header at sector 1
-    var header_sector: [512]u8 = [_]u8{0} ** 512;
+    var header_sector: [512]u8 = @splat(0);
     @memcpy(header_sector[0..@sizeOf(zgpt.gpt.GptHeader)], std.mem.asBytes(&header));
     try file.writePositionalAll(io, &header_sector, SECTOR_SIZE);
 
@@ -190,7 +190,7 @@ fn setupLoopDeviceWithSectorSize(
     image_path: []const u8,
     sector_size: u32,
 ) ![]const u8 {
-    const sector_size_str = try std.fmt.allocPrint(allocator, "{d}", .{sector_size});
+    const sector_size_str = try allocator.print("{d}", .{sector_size});
     defer allocator.free(sector_size_str);
     const stdout = try runCommand(
         allocator,
@@ -329,9 +329,9 @@ test "integration: resize partition on loop device" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/resize_test.img";
+    const image_path = "_output/test-images/resize_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     const initial_partition_sectors: u64 = 10240;
@@ -381,9 +381,9 @@ test "integration: resize non-existent partition fails" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/error_test.img";
+    const image_path = "_output/test-images/error_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     try createTestImage(allocator, io, image_path, 10, 10240);
@@ -422,9 +422,9 @@ test "integration: resize with read-only fd succeeds" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/readonly_test.img";
+    const image_path = "_output/test-images/readonly_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     try createTestImage(allocator, io, image_path, 20, 10240);
@@ -472,16 +472,17 @@ test "integration: resize on regular file fails with NotSupported" {
 
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const file_path = "zig-cache/test-images/regular_file.img";
+    const file_path = "_output/test-images/regular_file.img";
     defer std.Io.Dir.cwd().deleteFile(io, file_path) catch {};
 
     // Create a regular file
     const file = try std.Io.Dir.cwd().createFile(io, file_path, .{});
     defer file.close(io);
 
-    try file.writePositionalAll(io, &[_]u8{0} ** 4096, 0);
+    const zeros: [4096]u8 = @splat(0);
+    try file.writePositionalAll(io, &zeros, 0);
 
     const result = zblkpg.resizePartition(file.handle, 1, 0, 1000, 512);
     try testing.expectError(error.NotSupported, result);
@@ -496,9 +497,9 @@ test "resize with partition number 0 fails" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/partnum0_test.img";
+    const image_path = "_output/test-images/partnum0_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     try createTestImage(allocator, io, image_path, 10, 10240);
@@ -527,9 +528,9 @@ test "resize with negative partition number fails" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/partneg_test.img";
+    const image_path = "_output/test-images/partneg_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     try createTestImage(allocator, io, image_path, 10, 10240);
@@ -558,9 +559,9 @@ test "resize with end before start fails" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/endbeforestart_test.img";
+    const image_path = "_output/test-images/endbeforestart_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     try createTestImage(allocator, io, image_path, 10, 10240);
@@ -590,9 +591,9 @@ test "resize with zero length fails" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/zerolength_test.img";
+    const image_path = "_output/test-images/zerolength_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     try createTestImage(allocator, io, image_path, 10, 10240);
@@ -626,9 +627,9 @@ test "integration: shrink partition" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/shrink_test.img";
+    const image_path = "_output/test-images/shrink_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     // Start with a 10MB partition (20480 sectors)
@@ -685,9 +686,9 @@ test "integration: multiple resize operations in sequence" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/multi_resize_test.img";
+    const image_path = "_output/test-images/multi_resize_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     try createTestImage(allocator, io, image_path, 30, 10240);
@@ -736,9 +737,9 @@ test "integration: resize to maximum available space" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/maxsize_test.img";
+    const image_path = "_output/test-images/maxsize_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     try createTestImage(allocator, io, image_path, 20, 10240);
@@ -796,7 +797,7 @@ fn createTestImage4K(
     const sector_size: u32 = 4096;
 
     // Create sparse file
-    const size_str = try std.fmt.allocPrint(allocator, "{d}M", .{size_mb});
+    const size_str = try allocator.print("{d}M", .{size_mb});
     defer allocator.free(size_str);
     try runCommandIgnoreOutput(allocator, io, &.{ "truncate", "-s", size_str, path });
 
@@ -846,12 +847,12 @@ fn createTestImage4K(
 
     // Write protective MBR (sector 0, 4K) - MBR is 512 bytes, pad rest of 4K sector
     const mbr_data = zgpt.gpt.createProtectiveMbr(total_sectors);
-    var mbr_sector: [4096]u8 = [_]u8{0} ** 4096;
+    var mbr_sector: [4096]u8 = @splat(0);
     @memcpy(mbr_sector[0..512], &mbr_data);
     try file.writePositionalAll(io, &mbr_sector, 0);
 
     // Write primary GPT header at sector 1
-    var header_sector: [4096]u8 = [_]u8{0} ** 4096;
+    var header_sector: [4096]u8 = @splat(0);
     @memcpy(header_sector[0..@sizeOf(zgpt.gpt.GptHeader)], std.mem.asBytes(&header));
     try file.writePositionalAll(io, &header_sector, sector_size);
 
@@ -895,9 +896,9 @@ test "integration: resize with 4096-byte sectors" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/sector4k_test.img";
+    const image_path = "_output/test-images/sector4k_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     // Create image with proper 4K sector GPT layout
@@ -973,9 +974,9 @@ test "integration: resize one partition without affecting others" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/multipart_test.img";
+    const image_path = "_output/test-images/multipart_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     // Create image with 2 partitions, leaving space for partition 1 to grow
@@ -1055,9 +1056,9 @@ test "integration: resize partition 2 specifically" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    std.Io.Dir.cwd().createDirPath(io, "zig-cache/test-images") catch {};
+    std.Io.Dir.cwd().createDirPath(io, "_output/test-images") catch {};
 
-    const image_path = "zig-cache/test-images/part2_test.img";
+    const image_path = "_output/test-images/part2_test.img";
     defer std.Io.Dir.cwd().deleteFile(io, image_path) catch {};
 
     // Create image with 2 partitions - partition 2 is at the end with room to grow

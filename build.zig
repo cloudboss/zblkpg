@@ -13,6 +13,7 @@ pub fn build(b: *std.Build) void {
     const mod = b.addModule("zblkpg", .{
         .root_source_file = b.path("src/blkpg.zig"),
         .target = target,
+        .optimize = optimize,
     });
 
     const lib = b.addLibrary(.{
@@ -59,6 +60,15 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 
-    const integration_test_step = b.step("test-integration", "Run integration tests (requires root)");
+    const integration_test_step = b.step(
+        "test-integration",
+        "Run integration tests (requires root)",
+    );
     integration_test_step.dependOn(&run_integration_tests.step);
+
+    const integration_compile_step = b.step(
+        "test-integration-compile",
+        "Compile integration tests without running them",
+    );
+    integration_compile_step.dependOn(&integration_tests.step);
 }

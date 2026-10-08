@@ -4,6 +4,8 @@ A Zig library to call Linux blkpg ioctls.
 
 Note: only the `BLKPG_RESIZE_PARTITION` operation is implemented.
 
+Requires Zig 0.17.0 and Linux.
+
 ## Usage
 
 Add to your `build.zig.zon`:
@@ -33,9 +35,13 @@ exe.root_module.addImport("zblkpg", zblkpg_dep.module("zblkpg"));
 const std = @import("std");
 const zblkpg = @import("zblkpg");
 
-pub fn main() !void {
-    const file = try std.fs.openFileAbsolute("/dev/nvme0n1", .{ .mode = .read_write });
-    defer file.close();
+pub fn main(init: std.process.Init) !void {
+    const file = try std.Io.Dir.openFileAbsolute(
+        init.io,
+        "/dev/nvme0n1",
+        .{ .mode = .read_write },
+    );
+    defer file.close(init.io);
 
     // Resize partition 2: new range is sectors 456-789 with 512-byte sectors
     try zblkpg.resizePartition(file.handle, 2, 456, 789, 512);
@@ -78,11 +84,19 @@ Parameters:
 ## Testing
 
 Unit tests (struct size validation):
+
 ```sh
 zig build test
 ```
 
+Compile integration tests without root access:
+
+```sh
+zig build test-integration-compile
+```
+
 Integration tests (requires root, uses loop devices):
+
 ```sh
 sudo zig build test-integration
 ```

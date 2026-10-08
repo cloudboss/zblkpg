@@ -59,9 +59,13 @@ pub const ResizeError = error{
 /// const std = @import("std");
 /// const zblkpg = @import("zblkpg");
 ///
-/// pub fn main() !void {
-///     const file = try std.fs.openFileAbsolute("/dev/nvme0n1", .{ .mode = .read_write });
-///     defer file.close();
+/// pub fn main(init: std.process.Init) !void {
+///     const file = try std.Io.Dir.openFileAbsolute(
+///         init.io,
+///         "/dev/nvme0n1",
+///         .{ .mode = .read_write },
+///     );
+///     defer file.close(init.io);
 ///     try zblkpg.resizePartition(file.handle, 2, 456, 789, 512);
 /// }
 /// ```
@@ -76,8 +80,8 @@ pub fn resizePartition(
         .start = start_sector * sector_size,
         .length = (end_sector - start_sector) * sector_size,
         .pno = part_num,
-        .devname = [_]u8{0} ** 64,
-        .volname = [_]u8{0} ** 64,
+        .devname = @splat(0),
+        .volname = @splat(0),
     };
 
     const arg = BlkpgIoctlArg{
